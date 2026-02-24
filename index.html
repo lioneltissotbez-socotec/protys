@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Export DIAMATYS – LICIEL (v08)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+/* ── Tous les styles sont scopés sous #exportProtys              ──
+   ── pour éviter tout conflit avec LumApps ou autre widget parent ── */
+#exportProtys{font-family:"Segoe UI",Arial,sans-serif;background:#f4f6f8;padding:20px;color:#1f2937;box-sizing:border-box}
+#exportProtys *{box-sizing:border-box}
+#exportProtys .wrap{max-width:1400px;margin:auto;background:#fff;border-radius:14px;padding:24px;box-shadow:0 10px 30px rgba(0,0,0,.08)}
+#exportProtys .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;padding-bottom:12px;border-bottom:1px solid #e5eaf0}
+#exportProtys .header-left{display:flex;align-items:center;gap:16px}
+#exportProtys .logo{height:40px}
+#exportProtys h1{margin:0;font-size:20px;font-weight:700}
+#exportProtys .subtitle{font-size:13px;color:#6b7280}
+#exportProtys .status{font-size:12px;padding:6px 10px;border-radius:20px;background:#eef3f8;color:#374151}
+#exportProtys .notice{font-size:12px;background:#fff4d6;border:1px solid #ffd27a;padding:10px 14px;border-radius:10px;margin-bottom:18px}
+#exportProtys .card{background:#fafcff;border:1px solid #e6eef5;border-radius:12px;padding:16px 18px;margin-bottom:18px}
+#exportProtys .card h2{margin:0 0 12px 0;font-size:15px;font-weight:600;color:#1a4e8a}
+#exportProtys .row{display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap}
+#exportProtys label{font-size:13px;display:flex;flex-direction:column;gap:4px}
+#exportProtys input[type=file],#exportProtys input[type=text],#exportProtys select{padding:8px 10px;border-radius:8px;border:1px solid #cbd5e1;font-size:13px;min-width:220px;background:#fff;color:#1f2937}
+#exportProtys button{padding:10px 18px;border-radius:10px;border:0;background:#1a73e8;color:#fff;font-weight:700;cursor:pointer;font-family:inherit}
+#exportProtys button:disabled{opacity:.5;cursor:not-allowed}
+#exportProtys .table-wrap{max-height:420px;overflow:auto;border:1px solid #d8dee6;border-radius:10px}
+#exportProtys table{border-collapse:collapse;width:100%;font-size:12px}
+#exportProtys th,#exportProtys td{border:1px solid #e2e8f0;padding:6px 8px;white-space:nowrap}
+#exportProtys th{background:#eef3f8;position:sticky;top:0;font-weight:600}
+#exportProtys tbody tr:nth-child(even){background:#f9fbfd}
+#exportProtys .log{white-space:pre-wrap;font-family:Consolas,monospace;font-size:12px;background:#f9fbfd;border:1px solid #e6eef5;border-radius:10px;padding:10px;max-height:220px;overflow:auto;margin-top:12px}
+#exportProtys .hidden{display:none}
+#exportProtys td[contenteditable]{background:#fffdf2;cursor:text}
+#modalPdf{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:1000}
+#modalPdf.hidden{display:none}
+#modalPdf .box{background:#fff;padding:20px;border-radius:14px;width:420px;box-shadow:0 12px 40px rgba(0,0,0,.25)}
+#modalSuccess,#modalPdf{font-family:"Segoe UI",Arial,sans-serif;color:#1f2937}
+</style>
+</head>
+<body>
+<div id="exportProtys">
+<div class="wrap">
+
+  <header class="header">
+    <div class="header-left">
+      <img src="https://www.socotec.fr/themes/custom/app_theme/assets/images/logo.svg" alt="SOCOTEC" class="logo">
+      <div>
+        <h1>Export DIAMATYS – LICIEL <small style="font-size:13px;color:#6b7280;font-weight:400">v08</small></h1>
+        <div class="subtitle">G&eacute;n&eacute;ration automatis&eacute;e du fichier Protys</div>
+      </div>
+    </div>
+    <span id="status" class="status">En attente de dossier</span>
+  </header>
+
+  <div class="notice">
+    &#9888;&#65039; <b>Export direct dans le dossier mission :</b> uniquement avec <b>Google Chrome</b> ou <b>Microsoft Edge</b>.<br>
+    Sinon, l'outil bascule automatiquement en s&eacute;lection classique.
+  </div>
+
+  <!-- SECTION 1 : S&eacute;lection -->
+  <section class="card">
+    <h2>1. S&eacute;lection du dossier</h2>
+    <div class="row">
+      <input id="picker"    type="file" webkitdirectory multiple style="display:none">
+      <button id="btnPickMissionFolder" type="button">S&eacute;lectionner le dossier mission (Chrome / Edge)</button>
+      <button id="btnExport" disabled>Exporter CSV (Diamatys)</button>
+    </div>
+  </section>
+
+  <!-- SECTION 2 : Corrections avant export (unique) -->
+  <section class="card">
+    <h2>2. Corrections avant export</h2>
+    <div class="row">
+      <label>
+        Organisation
+        <select id="orgInput" style="min-width:180px">
+          <option value="">-- choisir --</option>
+          <option value="ENEDIS">ENEDIS</option>
+          <option value="ORANGE">ORANGE</option>
+        </select>
+      </label>
+      <!-- Alerte organisation non reconnue -->
+      <div id="orgAlert" style="display:none;align-items:center;gap:10px;background:#fff4d6;border:1px solid #ffd27a;padding:8px 14px;border-radius:8px;font-size:12px;flex-wrap:wrap">
+        <span>&#9888;&#65039; Organisation XML &laquo;&nbsp;<b id="orgAlertValue"></b>&nbsp;&raquo; non reconnue &mdash; choisissez&nbsp;:</span>
+        <button id="btnOrgEnedis" type="button" style="background:#1a4e8a;padding:5px 14px;font-size:12px">ENEDIS</button>
+        <button id="btnOrgOrange" type="button" style="background:#ea580c;padding:5px 14px;font-size:12px">ORANGE</button>
+      </div>
+      <label id="dateRapportWrap" style="display:none">
+        Date du rapport <span style="color:#c0392b;font-weight:700">*</span>
+        <span style="font-size:11px;color:#e67e22">(non trouv&eacute;e automatiquement)</span>
+        <input id="dateRapportInput" type="text" placeholder="JJ/MM/AAAA" style="min-width:140px">
+      </label>
+    </div>
+    <!-- Barre info PDF + bouton Changer -->
+    <div id="pdfInfoBar" style="display:none;margin-top:10px;font-size:12px;background:#eef3f8;border:1px solid #c5d8ed;padding:8px 12px;border-radius:8px;align-items:center;gap:10px;">
+      &#128196; <b>PDF s&eacute;lectionn&eacute;&nbsp;:</b> <span id="pdfInfoName" style="font-style:italic"></span>
+      &nbsp;
+      <button id="btnChangePdf" type="button" style="padding:4px 10px;font-size:11px;font-weight:600;background:#e67e22;border-radius:6px;">Changer</button>
+    </div>
+  </section>
+
+  <!-- SECTION 3 : Aper&ccedil;u -->
+  <section class="card">
+    <h2>3. Aper&ccedil;u du fichier avant export</h2>
+    <div class="table-wrap">
+      <table id="preview"><thead></thead><tbody></tbody></table>
+    </div>
+    <div id="log" class="log hidden"></div>
+  </section>
+
+</div>
+
+
+<!-- MODALE SUCCÈS EXPORT -->
+<div id="modalSuccess" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);align-items:center;justify-content:center;z-index:2000">
+  <div style="background:#fff;padding:26px 30px;border-radius:16px;width:560px;max-width:96vw;box-shadow:0 12px 40px rgba(0,0,0,.25);text-align:center">
+
+    <!-- En-tête succès -->
+    <div style="font-size:46px;line-height:1;margin-bottom:8px">&#9989;</div>
+    <h3 style="margin:0 0 6px;color:#1a4e8a;font-size:17px">Export g&eacute;n&eacute;r&eacute; avec succ&egrave;s</h3>
+
+    <!-- Localisation des fichiers -->
+    <div style="background:#f0f7ff;border:1px solid #bfdbfe;border-radius:10px;padding:11px 16px;margin-bottom:14px;text-align:left;font-size:12px;line-height:1.7">
+      &#128194; Les fichiers <b>CSV</b> et <b>PDF</b> ont &eacute;t&eacute; d&eacute;pos&eacute;s dans le sous-dossier&nbsp;:
+      <div style="margin-top:5px;background:#fff;border:1px solid #93c5fd;border-radius:7px;padding:7px 12px;font-family:monospace;font-size:12px;color:#1a4e8a;display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <span>&#128230; <span id="successFolder" style="font-weight:700"></span></span>
+      </div>
+      <div id="successMsg" style="margin-top:5px;font-size:11px;color:#6b7280;font-style:italic"></div>
+    </div>
+
+    <!-- Séparateur -->
+    <hr style="border:none;border-top:1px solid #e5eaf0;margin:0 0 13px">
+
+    <!-- Encart process d'envoi -->
+    <p style="margin:0 0 9px;font-size:13px;font-weight:700;color:#374151">
+      &#128221; Rappel du process d&apos;envoi
+    </p>
+
+    <!-- Bloc ENEDIS fond bleu -->
+    <div style="background:#1a4e8a;color:#fff;border-radius:10px;padding:12px 16px;margin-bottom:10px;text-align:left;font-size:12px;line-height:1.7">
+      <div style="font-weight:700;font-size:13px;letter-spacing:.5px;margin-bottom:4px">
+        &#9889; ENEDIS
+      </div>
+      D&eacute;poser le rapport <b>PDF</b> et l&apos;export <b>CSV</b> du dossier <b>export_protys</b>
+      sur la plateforme <span style="font-weight:700;text-decoration:underline">E-plans</span>
+    </div>
+
+    <!-- Bloc ORANGE fond orange -->
+    <div style="background:#ea580c;color:#fff;border-radius:10px;padding:12px 16px;margin-bottom:16px;text-align:left;font-size:12px;line-height:1.7">
+      <div style="font-weight:700;font-size:13px;letter-spacing:.5px;margin-bottom:4px">
+        &#128241; ORANGE
+      </div>
+      Envoyer le rapport <b>PDF</b> et l&apos;export <b>CSV</b> du dossier <b>export_protys</b>
+      par mail &agrave;&nbsp;
+      <span style="font-family:monospace;font-weight:700;background:rgba(255,255,255,.2);padding:1px 6px;border-radius:4px">rapport@diamatys.fr</span>
+      <div style="margin-top:7px;display:flex;gap:8px;flex-wrap:wrap">
+        <button id="btnCopyMail" style="padding:4px 11px;font-size:11px;background:rgba(255,255,255,.25);border-radius:6px;border:1px solid rgba(255,255,255,.5);color:#fff;font-weight:600">&#128203; Copier l&apos;adresse</button>
+        <button id="btnOutlook"  style="padding:4px 11px;font-size:11px;background:rgba(255,255,255,.25);border-radius:6px;border:1px solid rgba(255,255,255,.5);color:#fff;font-weight:600">&#9993; Ouvrir Outlook</button>
+      </div>
+    </div>
+
+    <button id="btnSuccessClose" style="background:#6b7280;font-size:13px;padding:8px 24px">
+      Fermer
+    </button>
+
+  </div>
+</div>
+
+<!-- MODALE PDF -->
+<div id="modalPdf" class="hidden">
+  <div class="box">
+    <h3>D&eacute;p&ocirc;t du rapport final PDF</h3>
+    <input id="pdfFinalInput" type="file" accept="application/pdf">
+    <div style="margin-top:14px;text-align:right">
+      <button id="btnConfirmPdf" disabled>Valider</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ================================================================
+   EXPORT DIAMATYS – LICIEL  v08
+   Corrections :
+   - Structure HTML propre (1 seul conteneur "Corrections")
+   - sanitizeStr déclarée en premier (encodage é è à ù ' etc.)
+   - readFileCorrectly : UTF-8 > Windows-1252 > ISO-8859-1
+   - showDirectoryPicker avec mode:'readwrite' pour export direct
+   - padCP : 5 chiffres, 2A/2B Corse autorisés
+   - csvEscape : regex saine + sanitizeStr
+================================================================ */
+
+/* ── CONFIG ── */
+const PRELEVEMENT_SUR_VALUES = ["CHAUSSEE","TROTTOIR","ACCOTEMENT","PARKING","INCONNU"];
+const TYPE_AMIANTE_VALUES    = [
+  "Pas d'amiante","Inconnu","Actinolite","Amosite","Anthophyllite",
+  "Chrysotile","Crocidolite","Tremolite","Multiple"
+];
+const HEADERS = [
+  "RefRapport","RefExterne","RefCommande","DateCommande","Organisation","EntCommand",
+  "DateRapport","RapportIntermediaire","NbPrelevement","Emetteur","Operateur","Laboratoire",
+  "FichierRapport","RefPrelevement","DatePrelevement","PrelevementSur","Profondeur","Technique",
+  "TestAmiante","PresenceAmiante","TypeAmiante","TestHAP","TauxHAP","Adresse","CP","Commune",
+  "Latitude","Longitude","Observation","Zone"
+];
+
+/* ── DOM ── */
+const picker               = document.getElementById("picker");
+const btnPickMissionFolder = document.getElementById("btnPickMissionFolder");
+const btnExport            = document.getElementById("btnExport");
+const statusEl             = document.getElementById("status");
+const logBox               = document.getElementById("log");
+const thead                = document.querySelector("#preview thead");
+const tbody                = document.querySelector("#preview tbody");
+const orgInput             = document.getElementById("orgInput");
+const orgAlert             = document.getElementById("orgAlert");
+const orgAlertValue        = document.getElementById("orgAlertValue");
+const btnOrgEnedis         = document.getElementById("btnOrgEnedis");
+const btnOrgOrange         = document.getElementById("btnOrgOrange");
+const modalPdf             = document.getElementById("modalPdf");
+const pdfInput             = document.getElementById("pdfFinalInput");
+const btnConfirmPdf        = document.getElementById("btnConfirmPdf");
+const dateRapportWrap      = document.getElementById("dateRapportWrap");
+const dateRapportInput     = document.getElementById("dateRapportInput");
+const pdfInfoBar           = document.getElementById("pdfInfoBar");
+const pdfInfoName          = document.getElementById("pdfInfoName");
+const btnChangePdf         = document.getElementById("btnChangePdf");
+const modalSuccess         = document.getElementById("modalSuccess");
+const successMsg           = document.getElementById("successMsg");
+const successFolder        = document.getElementById("successFolder");
+const btnSuccessClose      = document.getElementById("btnSuccessClose");
+const btnCopyMail          = document.getElementById("btnCopyMail");
+const btnOutlook           = document.getElementById("btnOutlook");
+
+/* ── STATE ── */
+let rowsFinal       = [];
+const rawXmlByFile  = new Map();
+let missionDirHandle = null;
+let useDirectExport  = false;
+
+/* ================================================================
+   UTILS – sanitizeStr DOIT être déclarée en premier
+   car norm() et csvEscape() l'utilisent
+================================================================ */
+
+/**
+ * Normalise les caractères problématiques pour le CSV UTF-8.
+ * Gère :
+ *   - Apostrophes/guillemets typographiques (U+2018/19, U+201C/D, \x92 Windows-1252)
+ *   - Tirets cadratin/demi-cadratin
+ *   - Points de suspension
+ *   - Caractères accentués mal décodés (é è à ù ô etc.) :
+ *     si le décodage Windows-1252 est utilisé, les accents arrivent corrects en JS
+ *     grâce à readFileCorrectly — aucune conversion supplémentaire nécessaire ici
+ */
+function sanitizeStr(v) {
+  if (v == null) return "";
+  return String(v)
+    .replace(/[\u2018\u2019\u0092\u02BC]/g, "'")   // apostrophes typo → '
+    .replace(/[\u201C\u201D]/g,             '"')    // guillemets typo  → "
+    .replace(/[\u2013\u2014]/g,             '-')    // tirets cadratin  → -
+    .replace(/\u2026/g,                     '...')  // … → ...
+    .replace(/\u00A0/g,                     ' ')    // espace insécable → espace
+    .trim();
+}
+
+/* ── Autres helpers ── */
+const log    = m => { logBox.classList.remove("hidden"); logBox.textContent += m + "\n"; };
+
+// norm : pour l'affichage dans le tableau (ne doit pas casser le ; séparateur)
+const norm   = v => sanitizeStr(v).replace(/;/g, ",");
+
+// toDot : remplace virgule décimale par point (coordonnées GPS)
+const toDot  = s => s ? String(s).replace(",", ".") : "";
+
+// ensureDate : accepte JJ/MM/AAAA ou AAAA-MM-JJ, retourne JJ/MM/AAAA
+function ensureDate(s) {
+  if (!s) return "";
+  s = s.trim();
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return iso[3] + "/" + iso[2] + "/" + iso[1];
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
+  return s;
+}
+
+// dateFromPdfName : extrait une date format JJ_MM_AAAA dans le nom du PDF
+// Ex: "Rapport_Amiante_Tvx_22_10_2025.pdf" → "22/10/2025"
+function dateFromPdfName(name) {
+  const m = name.match(/(\d{2})_(\d{2})_(\d{4})/);
+  return m ? m[1] + "/" + m[2] + "/" + m[3] : "";
+}
+
+// mapPrelevementSur : Localisation LICIEL → valeur acceptée Protys
+// Source : LiColonne_Localisation dans Table_Z_Amiante_prelevements.xml
+function mapPrelevementSur(val) {
+  if (!val) return "INCONNU";
+  const v = String(val).toUpperCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, ""); // retire accents pour comparer
+  if (v.includes("TROTTOIR"))                          return "TROTTOIR";
+  if (v.includes("CHAUSSEE") || v.includes("VOIRIE")) return "CHAUSSEE";
+  if (v.includes("ACCOTEMENT"))                        return "ACCOTEMENT";
+  if (v.includes("PARKING"))                           return "PARKING";
+  return "INCONNU";
+}
+
+// padCP : code postal sur exactement 5 caractères
+// Accepte : 5 chiffres, 2A/2B + 3 chiffres (Corse)
+// Source : LiColonne_CP dans Table_Z_Amiante_HAP_Carotte.xml
+function padCP(val) {
+  if (!val) return "";
+  val = String(val).trim();
+  if (/^\d[AB]\d{3}$/i.test(val)) return val.toUpperCase(); // Corse 2A004 / 2B004
+  if (/^\d+$/.test(val))          return val.padStart(5, "0"); // 8400 → 08400
+  return val;
+}
+
+// buildLabo : concatène nom laboratoire + numéro COFRAC
+// Source : Table_Z_Amiante_General.xml
+function buildLabo(nom, cofrac) {
+  nom    = sanitizeStr(nom);
+  cofrac = sanitizeStr(cofrac);
+  if (nom && cofrac) return nom + " (Cofrac : " + cofrac + ")";
+  return nom || cofrac || "";
+}
+
+// autoDetectPdf : cherche le PDF le plus récent contenant "Amiante_Tvx"
+//                 à la RACINE du dossier mission
+// Source : spec CSV Protys/Diamatys
+async function autoDetectPdf(dirHandle) {
+  let bestFile = null, bestDate = 0;
+  try {
+    for await (const entry of dirHandle.values()) {
+      if (entry.kind === "file"
+          && /\.pdf$/i.test(entry.name)
+          && /Amiante_Tvx/i.test(entry.name)) {
+        const f = await entry.getFile();
+        if (f.lastModified > bestDate) { bestDate = f.lastModified; bestFile = f; }
+      }
+    }
+  } catch(e) { log("Avertissement auto-PDF : " + e.message); }
+  return bestFile;
+}
+
+/* ── applyPdf : applique le fichier PDF sélectionné ── */
+function applyPdf(file) {
+  // FichierRapport = nom SANS extension (spec Protys champ 13)
+  const baseName = file.name.replace(/\.[^.]+$/, "");
+
+  // Niveau 2 : DateRapport depuis nom du PDF si pas trouvée en XML
+  if (rowsFinal.length && !rowsFinal[0].DateRapport) {
+    const dateFromPdf = dateFromPdfName(file.name);
+    if (dateFromPdf) {
+      rowsFinal.forEach(r => r.DateRapport = dateFromPdf);
+      log("DateRapport extraite du nom PDF : " + dateFromPdf);
+    }
+  }
+
+  // Niveau 3 : si toujours pas de date → afficher champ manuel
+  if (rowsFinal.length && !rowsFinal[0].DateRapport) {
+    dateRapportWrap.style.display = "";
+    dateRapportInput.oninput = () => {
+      const d = dateRapportInput.value.trim();
+      rowsFinal.forEach(r => r.DateRapport = d);
+      refreshPreviewTable();
+    };
+  } else {
+    dateRapportWrap.style.display = "none";
+  }
+
+  rowsFinal.forEach(r => r.FichierRapport = baseName);
+  refreshPreviewTable();
+
+  lastPdfName = file.name;
+  lastPdfFile = file;
+  pdfInfoName.textContent = file.name;
+  pdfInfoBar.style.display = "flex";
+  modalPdf.classList.add("hidden");
+  btnExport.disabled = false;
+  statusEl.textContent = rowsFinal.length + " lignes pret\u00e9s \u2013 export autoris\u00e9";
+}
+
+/* ================================================================
+   LECTURE FICHIERS
+   Ordre : UTF-8 strict > Windows-1252 > ISO-8859-1
+   Windows-1252 est prioritaire sur ISO-8859-1 car LICIEL tourne
+   sous Windows et utilise cette page de code pour les accents.
+================================================================ */
+async function readFileCorrectly(file) {
+  const buf = await file.arrayBuffer();
+  // 1. Tenter UTF-8 strict (échoue si octets invalides)
+  try { return new TextDecoder("utf-8", { fatal: true }).decode(buf); } catch(e) {}
+  // 2. Windows-1252 (superset de ISO-8859-1, gère \x80-\x9F)
+  //    Couvre é=\xe9  è=\xe8  à=\xe0  ù=\xf9  '=\x92  etc.
+  try { return new TextDecoder("windows-1252").decode(buf); } catch(e) {}
+  // 3. Fallback ISO-8859-1
+  return new TextDecoder("iso-8859-1").decode(buf);
+}
+
+/* ── XML HELPERS ── */
+function extractBalises(txt, filename, out) {
+  const r = /<LiColonne_([^>]+)>([\s\S]*?)<\/LiColonne_[^>]+>/g;
+  let m;
+  while ((m = r.exec(txt)) !== null) {
+    const v = m[2].trim();
+    if (v) out.push({ tag: "LiColonne_" + m[1], value: v, filename });
+  }
+}
+
+function getFirstValue(balises, tag, files) {
+  files = files || [];
+  for (const f of files) {
+    const b = balises.find(x => x.filename === f && x.tag === tag);
+    if (b) return b.value;
+  }
+  const any = balises.find(x => x.tag === tag);
+  return any ? any.value : "";
+}
+
+function getBlock(file) { return rawXmlByFile.get(file) || ""; }
+
+/* ── PARSERS ── */
+// Table_Z_Amiante_prelevements.xml : structure plate (blocs séparés par id_classement_champs)
+function parsePrelevementFlat(xml) {
+  const rows   = [];
+  const re     = /<LiColonne_([^>]+)>(.*?)<\/LiColonne_[^>]+>/g;
+  const blocks = xml.split(/(?=<LiColonne_id_classement_champs>)/g);
+  for (const b of blocks) {
+    const o = {}; let m;
+    while ((m = re.exec(b)) !== null) o[m[1]] = m[2].trim();
+    if (Object.keys(o).length) rows.push(o);
+  }
+  return rows;
+}
+
+// Tables structurées (LiItem_xxx)
+// Utilisé pour : Table_Z_Amiante_HAP_Carotte.xml, Table_Z_Amiante_HAP_Couches.xml
+function parseStructured(xml) {
+  const rows = [];
+  const item = /<LiItem_[^>]*>([\s\S]*?)<\/LiItem_[^>]*>/g;
+  let m;
+  while ((m = item.exec(xml)) !== null) {
+    const o = {};
+    const col = /<LiColonne_([^>]+)>(.*?)<\/LiColonne_[^>]+>/g;
+    let c;
+    while ((c = col.exec(m[1])) !== null) o[c[1]] = c[2].trim();
+    rows.push(o);
+  }
+  return rows;
+}
+
+/* ── TABLE APERCU ── */
+function updateCell(i, f, v)  { rowsFinal[i][f] = v; }
+
+function validateTauxHAP(rowIndex, cell) {
+  let v = cell.textContent.trim().replace(",", ".");
+  if (!/^\d+(\.\d+)?$/.test(v)) {
+    alert("TauxHAP doit etre une valeur numerique entre 0 et 50");
+    cell.textContent = ""; rowsFinal[rowIndex].TauxHAP = ""; return;
+  }
+  const num = parseFloat(v);
+  if (num < 0 || num > 50) {
+    alert("TauxHAP doit etre compris entre 0 et 50");
+    cell.textContent = ""; rowsFinal[rowIndex].TauxHAP = ""; return;
+  }
+  rowsFinal[rowIndex].TauxHAP = String(num);
+  cell.textContent = String(num);
+}
+
+function refreshPreviewTable() {
+  tbody.innerHTML = rowsFinal.map((r, i) =>
+    "<tr>" + HEADERS.map(h => {
+      if (h === "PrelevementSur") {
+        return "<td><select onchange=\"updateCell(" + i + ",'PrelevementSur',this.value)\">"
+          + PRELEVEMENT_SUR_VALUES.map(v =>
+              "<option" + (v === r[h] ? " selected" : "") + ">" + v + "</option>"
+            ).join("") + "</select></td>";
+      }
+      if (h === "TypeAmiante") {
+        return "<td><select onchange=\"updateCell(" + i + ",'TypeAmiante',this.value)\">"
+          + TYPE_AMIANTE_VALUES.map(v =>
+              "<option" + (v === r[h] ? " selected" : "") + ">" + v + "</option>"
+            ).join("") + "</select></td>";
+      }
+      if (h === "TauxHAP") {
+        return "<td contenteditable onblur=\"validateTauxHAP(" + i + ",this)\">" + norm(r[h]) + "</td>";
+      }
+      return "<td>" + norm(r[h]) + "</td>";
+    }).join("") + "</tr>"
+  ).join("");
+}
+
+/* ================================================================
+   SCAN CORE : lit les XML et construit rowsFinal
+================================================================ */
+async function scanFiles(fileList) {
+  statusEl.textContent = "Analyse en cours\u2026";
+  btnExport.disabled   = true;
+  logBox.textContent   = ""; logBox.classList.add("hidden");
+  rowsFinal = []; thead.innerHTML = ""; tbody.innerHTML = "";
+  rawXmlByFile.clear();
+  dateRapportWrap.style.display = "none";
+  pdfInfoBar.style.display      = "none";
+
+  const files    = Array.from(fileList);
+  const xmlFiles = files.filter(f => f.name.endsWith(".xml"));
+
+  if (!xmlFiles.length) { statusEl.textContent = "Aucun XML trouv\u00e9"; return false; }
+
+  const balises = [];
+  for (const f of xmlFiles) {
+    const txt = await readFileCorrectly(f);
+    rawXmlByFile.set(f.name, txt);
+    extractBalises(txt, f.name, balises);
+  }
+
+  // ── Prélèvements ──
+  // Source : Table_Z_Amiante_prelevements.xml
+  const prelevs = parsePrelevementFlat(getBlock("Table_Z_Amiante_prelevements.xml"));
+  if (!prelevs.length) { statusEl.textContent = "Aucun pr\u00e9l\u00e8vement trouv\u00e9"; return false; }
+
+  // ── Carottes ──
+  // Source : Table_Z_Amiante_HAP_Carotte.xml
+  // Liaison : LiColonne_Reference = Num_Prelevement (P001, P002…)
+  const carottes = parseStructured(getBlock("Table_Z_Amiante_HAP_Carotte.xml"));
+  const carByRef = new Map(carottes.map(c => [c.Reference, c]));
+
+  // ── Couches HAP ──
+  // Source : Table_Z_Amiante_HAP_Couches.xml
+  const couches       = parseStructured(getBlock("Table_Z_Amiante_HAP_Couches.xml"));
+  const coucheByClef  = new Map();
+  couches.forEach(c => {
+    const k = c.ClefComposantCarotte;
+    if (!coucheByClef.has(k)) coucheByClef.set(k, []);
+    coucheByClef.get(k).push(c);
+  });
+
+  // ── DateRapport niveau 1 : LiColonne_Mission_Date_Rapport (Table_General_Bien.xml) ──
+  let dateRapportGlobal = ensureDate(
+    getFirstValue(balises, "LiColonne_Mission_Date_Rapport", ["Table_General_Bien.xml"])
+  );
+  if (dateRapportGlobal) log("DateRapport XML : " + dateRapportGlobal);
+
+  // ── Données communes à toutes les lignes ──
+  const common = {
+    // Source : LiColonne_Mission_Num_Dossier dans Table_General_Bien.xml
+    RefRapport   : sanitizeStr(
+                     getFirstValue(balises, "LiColonne_Mission_Num_Dossier", ["Table_General_Bien.xml"])
+                  || getFirstValue(balises, "LiColonne_Num_dossier",         ["Table_Admin_Donnees_Dossiers.xml"])
+                   ),
+    RefExterne   : "",
+    // Source : LiColonne_Immeuble_Reference_programme_Travaux dans Table_General_Bien.xml
+    RefCommande  : sanitizeStr(getFirstValue(balises, "LiColonne_Immeuble_Reference_programme_Travaux", ["Table_General_Bien.xml"])),
+    DateCommande : ensureDate(getFirstValue(balises, "LiColonne_Date_commande", ["Table_Admin_Donnees_Dossiers.xml"])),
+    // Source : LiColonne_DOrdre_Nom dans Table_General_Bien.xml (on retire le # éventuel)
+    Organisation : sanitizeStr(
+                    (getFirstValue(balises, "LiColonne_DOrdre_Nom", ["Table_General_Bien.xml"]) || "")
+                      .replace(/^#/, "")
+                  ) || sanitizeStr(getFirstValue(balises, "LiColonne_dordre_nom", ["Table_Admin_Donnees_Dossiers.xml"])),
+    EntCommand          : "",
+    DateRapport         : dateRapportGlobal,
+    RapportIntermediaire: "NON",
+    NbPrelevement       : String(prelevs.length),
+    Emetteur            : "DIAG",
+    // Source : LiColonne_Gen_Nom_operateur dans Table_General_Bien.xml
+    Operateur    : "SOCOTEC DIAGNOSTIC", // Valeur fixe demandée par le client (indépendante du nom réel de l'opérateur en XML)
+    // Source : Table_Z_Amiante_General.xml (nom + COFRAC)
+    Laboratoire  : buildLabo(
+                     getFirstValue(balises, "LiColonne_Amiante_Labo_nom",    ["Table_Z_Amiante_General.xml"]),
+                     getFirstValue(balises, "LiColonne_Amiante_Labo_COFRAC", ["Table_Z_Amiante_General.xml"])
+                   ),
+    FichierRapport: ""
+  };
+
+  // ── Ligne par prélèvement ──
+  rowsFinal = prelevs.map(p => {
+    // Carotte correspondante via Reference = Num_Prelevement
+    const car    = carByRef.get(p.Num_Prelevement) || {};
+    const couche = (coucheByClef.get(car.ClefComposant) || [])[0] || {};
+
+    // TestAmiante / PresenceAmiante
+    // Source : LiColonne_Resultat_reperage dans Table_Z_Amiante_prelevements.xml
+    // "Absence d'amiante" → PresenceAmiante=NON  |  "Presence d'amiante" → OUI
+    const resultat   = sanitizeStr(p.Resultat_reperage || "");
+    const hasResult  = resultat.length > 0;
+    const absAmiante = resultat.toLowerCase().includes("absence");
+
+    // TypeAmiante
+    const typeAmiante = (() => {
+      if (!hasResult || absAmiante) return "Pas d'amiante";
+      const com = sanitizeStr(couche.Commentaire || "").toLowerCase();
+      const types = ["Actinolite","Amosite","Anthophyllite","Chrysotile","Crocidolite","Tremolite","Multiple"];
+      return types.find(t => com.includes(t.toLowerCase())) || "Inconnu";
+    })();
+
+    // Adresse : PR ou Precision (libellé voie) depuis Carotte, sinon Adresse du bien
+    const adresse = sanitizeStr(
+      car.PR || car.Precision
+      || getFirstValue(balises, "LiColonne_Immeuble_Adresse1", ["Table_General_Bien.xml"])
+      || ""
+    );
+
+    return {
+      ...common,
+      RefPrelevement  : sanitizeStr(p.Num_Prelevement),
+      // Date prélèvement déjà au format JJ/MM/AAAA dans le XML
+      DatePrelevement : ensureDate(p.Date_Prelevement || ""),
+      // Mapping Localisation → valeur Protys
+      PrelevementSur  : mapPrelevementSur(p.Localisation),
+      // Epaisseur : EpaisseurTotale depuis Carotte (Table_Z_Amiante_HAP_Carotte.xml)
+      Profondeur      : sanitizeStr(car.EpaisseurTotale || couche.Epaisseur || ""),
+      Technique       : "",
+      TestAmiante     : hasResult ? "OUI" : "NON",
+      PresenceAmiante : absAmiante ? "NON" : (hasResult ? "OUI" : "NON"),
+      TypeAmiante     : typeAmiante,
+      // HAP depuis Table_Z_Amiante_HAP_Couches.xml
+      TestHAP         : (couche.AnalyseHAP || "").toLowerCase() === "oui" ? "OUI" : "NON",
+      TauxHAP         : couche.ConclusionHAP ? sanitizeStr(couche.ConclusionHAP).replace(/[<>]/g, "").trim() : "",
+      Adresse         : adresse,
+      // CP : depuis Carotte, paddé 5 chiffres (ex: 8400 → 08400)
+      CP              : padCP(car.CP || getFirstValue(balises, "LiColonne_Immeuble_Departement", ["Table_General_Bien.xml"])),
+      Commune         : sanitizeStr(car.Commune || getFirstValue(balises, "LiColonne_Immeuble_Commune", ["Table_General_Bien.xml"]) || ""),
+      // GPS : GeoLocX = Latitude, GeoLocY = Longitude (Table_Z_Amiante_HAP_Carotte.xml)
+      Latitude        : toDot(car.GeoLocX) || "",
+      Longitude       : toDot(car.GeoLocY) || "",
+      Observation     : "",
+      Zone            : ""
+    };
+  });
+
+  // Organisation : doit être exactement ENEDIS ou ORANGE
+  const orgXml  = rowsFinal[0] ? rowsFinal[0].Organisation : "";
+  const orgNorm = orgXml.toUpperCase().trim();
+  const orgValide = orgNorm === "ENEDIS" || orgNorm === "ORANGE";
+
+  if (orgValide) {
+    // Valeur reconnue : on l'applique directement et on sélectionne dans le select
+    setOrganisation(orgNorm);
+    orgAlert.style.display = "none";
+  } else {
+    // Valeur inconnue : vider le select et afficher l'alerte
+    orgInput.value = "";
+    rowsFinal.forEach(r => r.Organisation = "");
+    if (orgXml) {
+      orgAlertValue.textContent = orgXml;
+      orgAlert.style.display    = "flex";
+    }
+  }
+
+  // Changement manuel via le select
+  orgInput.onchange = () => {
+    setOrganisation(orgInput.value);
+    orgAlert.style.display = "none";
+  };
+
+  thead.innerHTML = "<tr>" + HEADERS.map(h => "<th>" + h + "</th>").join("") + "</tr>";
+  refreshPreviewTable();
+  statusEl.textContent = rowsFinal.length + " lignes pr\u00eates \u2013 d\u00e9p\u00f4t du PDF requis";
+  return true;
+}
+
+/* ── Organisation : setter global ── */
+function setOrganisation(val) {
+  orgInput.value = val;
+  rowsFinal.forEach(r => r.Organisation = val);
+  refreshPreviewTable();
+}
+
+/* Boutons de l'alerte organisation non reconnue */
+btnOrgEnedis.onclick = () => { setOrganisation("ENEDIS"); orgAlert.style.display = "none"; };
+btnOrgOrange.onclick = () => { setOrganisation("ORANGE"); orgAlert.style.display = "none"; };
+
+/* ── DIRECTORY PICKER ── */
+async function collectFilesFromDirectoryHandle(dirHandle) {
+  const out = [];
+  async function walk(handle) {
+    for await (const entry of handle.values()) {
+      if (entry.kind === "file")           { out.push(await entry.getFile()); }
+      else if (entry.kind === "directory") { await walk(entry); }
+    }
+  }
+  await walk(dirHandle);
+  return out;
+}
+
+/* ── BOUTON SELECTION DOSSIER ── */
+btnPickMissionFolder.onclick = async () => {
+  if (window.showDirectoryPicker) {
+    try {
+      statusEl.textContent = "S\u00e9lection du dossier\u2026";
+      // mode:'readwrite' OBLIGATOIRE pour pouvoir écrire le CSV dans le dossier
+      missionDirHandle = await window.showDirectoryPicker({ mode: "readwrite" });
+      useDirectExport  = true;
+      statusEl.textContent = "Lecture des fichiers\u2026";
+
+      const files = await collectFilesFromDirectoryHandle(missionDirHandle);
+      const ok    = await scanFiles(files);
+      if (!ok) return;
+
+      // Auto-détection PDF "Amiante_Tvx" à la racine
+      const pdfAuto = await autoDetectPdf(missionDirHandle);
+      if (pdfAuto) {
+        log("PDF auto-d\u00e9tect\u00e9 : " + pdfAuto.name);
+        applyPdf(pdfAuto);
+        statusEl.textContent = rowsFinal.length + " lignes pr\u00eates \u2013 PDF : " + pdfAuto.name;
+      } else {
+        log("Aucun PDF Amiante_Tvx trouv\u00e9 \u00e0 la racine \u2013 s\u00e9lection manuelle requise");
+        statusEl.textContent = rowsFinal.length + " lignes pr\u00eates \u2013 s\u00e9lectionner le PDF";
+        modalPdf.classList.remove("hidden");
+      }
+    } catch(e) {
+      useDirectExport = false;
+      if (e.name !== "AbortError") log("Erreur : " + e.message);
+      statusEl.textContent = "S\u00e9lection annul\u00e9e";
+    }
+    return;
+  }
+  // Fallback sans File System Access API
+  useDirectExport  = false;
+  missionDirHandle = null;
+  statusEl.textContent = "Navigateur sans export direct \u2013 s\u00e9lection classique";
+  picker.click();
+};
+
+/* ── FALLBACK PICKER ── */
+picker.addEventListener("change", async e => {
+  await scanFiles(e.target.files);
+  modalPdf.classList.remove("hidden");
+});
+
+/* ── PDF ── */
+pdfInput.onchange = () => { btnConfirmPdf.disabled = !pdfInput.files.length; };
+
+btnConfirmPdf.onclick = () => {
+  if (!pdfInput.files.length) return;
+  applyPdf(pdfInput.files[0]);
+};
+
+btnChangePdf.onclick = () => {
+  pdfInput.value = "";
+  btnConfirmPdf.disabled = true;
+  modalPdf.classList.remove("hidden");
+};
+
+/* ================================================================
+   EXPORT CSV
+   - UTF-8 sans BOM
+   - Pas de sep=; (interdit spec Protys)
+   - Séparateur point-virgule
+   - csvEscape : sanitizeStr + guillemets si nécessaire
+================================================================ */
+function csvEscape(v) {
+  // sanitizeStr normalise les apostrophes/guillemets typographiques
+  // Les accents (é è à ù…) passent tels quels car JS stocke en Unicode
+  // et TextEncoder().encode() produit du UTF-8 propre
+  v = sanitizeStr(v);
+  v = v.replace(/;/g, ",");   // le ; est le séparateur de champ → on le retire
+  // encadrer de guillemets si le champ contient " ou retour à la ligne
+  if (/["\r\n]/.test(v)) v = '"' + v.replace(/"/g, '""') + '"';
+  return v;
+}
+
+/* ── Construit le contenu CSV (lignes séparées par \n) ── */
+function buildCsvLines() {
+  return [
+    HEADERS.join(";"),
+    ...rowsFinal.map(r => HEADERS.map(h => csvEscape(r[h])).join(";"))
+  ].join("\n");
+}
+
+/* ─────────────────────────────────────────────────
+   EXPORT CSV  –  UTF-8 SANS BOM (spec Protys/Diamatys)
+   Note : Excel affichera les accents incorrectement
+   sans BOM. Ce fichier est conforme au cahier des
+   charges Diamatys et doit être envoyé tel quel.
+───────────────────────────────────────────────── */
+
+// Stocke les bytes du dernier export pour le bouton "Télécharger une copie"
+let lastExportBytes    = null;
+let lastExportFileName = "";
+let lastPdfName        = "";
+let lastPdfFile        = null;  // objet File du PDF pour copie dans export_protys
+
+btnExport.addEventListener("click", async () => {
+  if (!rowsFinal[0] || !rowsFinal[0].FichierRapport) { alert("Rapport PDF manquant"); return; }
+  if (!rowsFinal[0].Organisation || (rowsFinal[0].Organisation !== "ENEDIS" && rowsFinal[0].Organisation !== "ORANGE")) {
+    alert("Veuillez sélectionner l’organisation (ENEDIS ou ORANGE) avant d’exporter.");
+    orgInput.focus();
+    return;
+  }
+
+  const csv  = buildCsvLines();
+  const name = "DIAMATYS_" + (rowsFinal[0].RefRapport || "export") + ".csv";
+  // UTF-8 pur, sans BOM — conforme spec Protys/Diamatys
+  const bytes = new TextEncoder().encode(csv);
+
+  lastExportBytes    = bytes;
+  lastExportFileName = name;
+
+  // ── Export vers sous-dossier export_protys (Chrome/Edge readwrite) ──
+  // Crée le sous-dossier "export_protys" dans le dossier mission,
+  // y écrit le CSV et copie le PDF rapport.
+  if (useDirectExport && missionDirHandle) {
+    let exportSubDir = null;
+    let csvOk  = false;
+    let pdfOk  = false;
+    try {
+      // Créer ou ouvrir le sous-dossier export_protys
+      exportSubDir = await missionDirHandle.getDirectoryHandle("export_protys", { create: true });
+
+      // Écrire le CSV
+      const fh = await exportSubDir.getFileHandle(name, { create: true });
+      const wr = await fh.createWritable();
+      await wr.write(bytes);
+      await wr.close();
+      csvOk = true;
+      log("✅ CSV écrit : export_protys/" + name);
+
+      // Copier le PDF dans le même sous-dossier
+      if (lastPdfFile) {
+        const pdfBuf = await lastPdfFile.arrayBuffer();
+        const pfh    = await exportSubDir.getFileHandle(lastPdfFile.name, { create: true });
+        const pwr    = await pfh.createWritable();
+        await pwr.write(pdfBuf);
+        await pwr.close();
+        pdfOk = true;
+        log("✅ PDF copié : export_protys/" + lastPdfFile.name);
+      }
+    } catch(e) {
+      log("Dossier inaccessible (" + e.message + ") – téléchargement CSV classique.");
+      triggerDownload(bytes, name);
+    }
+
+    // Modale : message adapté selon résultat
+    if (csvOk) {
+      successFolder.textContent = missionDirHandle.name + " ▸ export_protys";
+      successMsg.innerHTML      = name + (pdfOk ? "<br>" + lastPdfFile.name : "<br><span style='color:#e67e22'>PDF non copié</span>");
+    } else {
+      successFolder.textContent = "Téléchargements (dossier inaccessible)";
+      successMsg.innerHTML      = name;
+    }
+    modalSuccess.style.display = "flex";
+    statusEl.textContent = csvOk
+      ? "✅ Fichiers écrits dans export_protys : " + name
+      : "✅ CSV téléchargé : " + name;
+    return;
+  }
+
+  // ── Téléchargement classique (navigateur sans File System API) ──
+  triggerDownload(bytes, name);
+  successFolder.textContent  = "Dossier Téléchargements";
+  successMsg.innerHTML      = name;
+  modalSuccess.style.display = "flex";
+  statusEl.textContent       = "✅ CSV téléchargé : " + name;
+  log("✅ Export téléchargé : " + name);
+});
+
+/* ── Boutons de la modale succès ── */
+btnSuccessClose.onclick = () => modalSuccess.style.display = "none";
+
+/* Copier l’adresse Diamatys (ORANGE) */
+btnCopyMail.onclick = () => {
+  navigator.clipboard.writeText("rapport@diamatys.fr").then(() => {
+    btnCopyMail.textContent = "✓ Copié !";
+    setTimeout(() => { btnCopyMail.textContent = "📋 Copier"; }, 2000);
+  });
+};
+
+/* Ouvrir Outlook avec sujet pré-rempli (ORANGE) */
+btnOutlook.onclick = () => {
+  const ref     = rowsFinal[0] ? rowsFinal[0].RefRapport || "" : "";
+  const subject = encodeURIComponent("Rapport RAT – " + ref);
+  const body    = encodeURIComponent(
+    "Bonjour,\n\nVeuillez trouver ci-joint le rapport RAT " + ref + ".\n\nCordialement"
+  );
+  window.open("mailto:rapport@diamatys.fr?subject=" + subject + "&body=" + body);
+};
+
+/* ── Helper téléchargement générique ── */
+function triggerDownload(bytes, fileName, mimeType) {
+  mimeType = mimeType || "text/csv;charset=utf-8";
+  const a  = document.createElement("a");
+  a.href   = URL.createObjectURL(new Blob([bytes], { type: mimeType }));
+  a.download = fileName;
+  a.click();
+}
+</script>
+</div><!-- /exportProtys -->
+</body>
+</html>

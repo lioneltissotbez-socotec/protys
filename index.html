@@ -30,8 +30,6 @@
 #exportProtys .log{white-space:pre-wrap;font-family:Consolas,monospace;font-size:12px;background:#f9fbfd;border:1px solid #e6eef5;border-radius:10px;padding:10px;max-height:220px;overflow:auto;margin-top:12px}
 #exportProtys .hidden{display:none}
 #exportProtys td[contenteditable]{background:#fffdf2;cursor:text}
-/* Champ refRapport en erreur */
-#exportProtys input.ref-error{border-color:#e74c3c;background:#fff5f5}
 #modalPdf{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:1000}
 #modalPdf.hidden{display:none}
 #modalPdf .box{background:#fff;padding:20px;border-radius:14px;width:420px;box-shadow:0 12px 40px rgba(0,0,0,.25)}
@@ -77,10 +75,10 @@
       <label>
         R&eacute;f&eacute;rence mission
         <input id="refRapportInput" type="text"
-               placeholder="Ex&nbsp;: 2605ABCDE - 12340000005678"
+               placeholder="Ex&nbsp;: 2605ABCDE - BI12340000005678"
                style="min-width:300px">
         <span id="refRapportHint" style="font-size:11px;color:#6b7280;margin-top:2px">
-          Format attendu&nbsp;: <code style="background:#eef3f8;padding:1px 5px;border-radius:4px">2605ABCDE&nbsp;-&nbsp;12340000005678</code>
+          Format attendu&nbsp;: <code style="background:#eef3f8;padding:1px 5px;border-radius:4px">2605ABCDE&nbsp;-&nbsp;BI12340000005678</code>
         </span>
       </label>
 
@@ -281,7 +279,7 @@ function buildLabo(nom, cofrac) {
 
 /* ── Validation format référence : 2605ABCDE - 12340000005678 ── */
 // Format attendu : 4 chiffres + lettres (code mission) + espace-tiret-espace + chiffres (BI...)
-const REF_PATTERN = /^\d{4}[A-Z]{2,6}\s*-\s*\d{10,16}$/i;
+const REF_PATTERN = /^\d{4}[A-Z]{2,6}\s*-\s*BI\d{10,16}$/i;
 
 function validateRefRapport(val) {
   return val.trim() === "" || REF_PATTERN.test(val.trim());
@@ -295,14 +293,10 @@ function setRefRapport(val) {
 }
 
 /* ── Handler input refRapportInput ── */
+// Référence non bloquante : toute valeur est acceptée,
+// le champ met à jour toutes les lignes du tableau sans validation
 refRapportInput.addEventListener("input", () => {
-  const val = refRapportInput.value;
-  if (!validateRefRapport(val)) {
-    refRapportInput.classList.add("ref-error");
-  } else {
-    refRapportInput.classList.remove("ref-error");
-    if (rowsFinal.length) setRefRapport(val);
-  }
+  if (rowsFinal.length) setRefRapport(refRapportInput.value);
 });
 
 async function autoDetectPdf(dirHandle) {
@@ -449,7 +443,6 @@ async function scanFiles(fileList) {
   dateRapportWrap.style.display = "none";
   pdfInfoBar.style.display      = "none";
   refRapportInput.value         = "";
-  refRapportInput.classList.remove("ref-error");
 
   const files    = Array.from(fileList);
   const xmlFiles = files.filter(f => f.name.endsWith(".xml"));
@@ -543,11 +536,6 @@ async function scanFiles(fileList) {
 
   // Pré-remplir le champ référence avec la valeur XML
   refRapportInput.value = refFromXml;
-  // Signaler visuellement si le format ne correspond pas au pattern attendu
-  if (refFromXml && !validateRefRapport(refFromXml)) {
-    refRapportInput.classList.add("ref-error");
-    log("Avertissement : r\u00e9f\u00e9rence XML \u00ab " + refFromXml + " \u00bb \u00e0 v\u00e9rifier (format inhabituel)");
-  }
 
   // Organisation
   const orgXml    = rowsFinal[0] ? rowsFinal[0].Organisation : "";
@@ -646,13 +634,6 @@ btnExport.addEventListener("click", async () => {
   if (!rowsFinal[0].Organisation || (rowsFinal[0].Organisation !== "ENEDIS" && rowsFinal[0].Organisation !== "ORANGE")) {
     alert("Veuillez s\u00e9lectionner l\u2019organisation (ENEDIS ou ORANGE) avant d\u2019exporter.");
     orgInput.focus(); return;
-  }
-  // Bloquer si la référence est saisie manuellement mais au mauvais format
-  const refVal = refRapportInput.value.trim();
-  if (refVal && !validateRefRapport(refVal)) {
-    if (!confirm("Le format de la r\u00e9f\u00e9rence semble inhabituel :\n\u00ab " + refVal + " \u00bb\n\nExporter quand m\u00eame ?")) {
-      refRapportInput.focus(); return;
-    }
   }
 
   const csv   = buildCsvLines();
